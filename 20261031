@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="zh-HK" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal &bull; Samuel Yuen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['Newsreader', 'Georgia', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            claude: {
+              cream: '#FAF7F2',
+              card: '#FFFFFF',
+              border: '#E8E4DC',
+              borderHover: '#D4CEBF',
+              text: '#22201D',
+              muted: '#7A756D',
+              terracotta: '#D97757',
+              terracottaHover: '#C26343',
+              darkBg: '#141311',
+              darkCard: '#1C1A17',
+              darkBorder: '#2E2B25',
+              darkText: '#EDEBE8',
+              darkMuted: '#969188'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 背景邊緣漸層柔化遮罩，令點陣與等高線自然融入背景 */
+    #liveFluidCanvas {
+      mask-image: radial-gradient(ellipse 92% 88% at 50% 50%, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.25) 100%);
+      -webkit-mask-image: radial-gradient(ellipse 92% 88% at 50% 50%, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.25) 100%);
+    }
+
+    /* 液態玻璃核心樣式 (Liquid Glass Card) */
+    .liquid-glass {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      box-shadow: 
+        0 6px 20px -3px rgba(35, 28, 20, 0.04),
+        0 2px 6px -1px rgba(35, 28, 20, 0.02),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .dark .liquid-glass {
+      background: rgba(28, 26, 23, 0.68);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 
+        0 8px 24px -4px rgba(0, 0, 0, 0.45),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .liquid-glass:hover {
+      transform: translateY(-4px) scale(1.012);
+      border-color: rgba(217, 119, 87, 0.45);
+      box-shadow: 
+        0 16px 32px -6px rgba(217, 119, 87, 0.12),
+        0 6px 12px -2px rgba(35, 28, 20, 0.04),
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+    }
+    .dark .liquid-glass:hover {
+      border-color: rgba(217, 119, 87, 0.5);
+      box-shadow: 
+        0 16px 36px -6px rgba(0, 0, 0, 0.6),
+        0 0 20px 0 rgba(217, 119, 87, 0.12),
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    /* 液態鏡面微光折射效果 */
+    .liquid-glass::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -120%;
+      width: 70%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+      transform: skewX(-20deg);
+      transition: left 0.75s ease;
+      pointer-events: none;
+    }
+    .liquid-glass:hover::before {
+      left: 140%;
+    }
+
+    /* 畫廊容器不作懸浮放大，保持穩定觀賞 */
+    .gallery-glass {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      box-shadow: 0 10px 30px -5px rgba(35, 28, 20, 0.06);
+    }
+    .dark .gallery-glass {
+      background: rgba(28, 26, 23, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 12px 36px -6px rgba(0, 0, 0, 0.55);
+    }
+
+    /* 卡片進場動畫 */
+    @keyframes cardFadeIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-card {
+      animation: cardFadeIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    /* 電影感相片緩慢縮放 (Ken Burns Effect) */
+    @keyframes kenBurns {
+      0% { transform: scale(1) translate(0, 0); }
+      50% { transform: scale(1.06) translate(-0.8%, -0.5%); }
+      100% { transform: scale(1) translate(0, 0); }
+    }
+    .animate-kenburns {
+      animation: kenBurns 18s ease-in-out infinite;
+    }
+
+    /* 層疊卡片遊戲動態樣式 */
+    .game-card-covered {
+      filter: brightness(0.68) grayscale(0.25);
+      pointer-events: none;
+      opacity: 0.75;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .game-card-active {
+      filter: brightness(1);
+      cursor: pointer;
+      opacity: 1;
+      box-shadow: 0 6px 14px -2px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.06);
+    }
+    .game-card-active:hover {
+      transform: translateY(-3px) scale(1.03);
+    }
+  </style>
+</head>
+
+<body class="bg-claude-cream dark:bg-claude-darkBg text-claude-text dark:text-claude-darkText min-h-screen font-sans flex flex-col antialiased selection:bg-[#F3D7CD] selection:text-[#96371B] relative overflow-x-hidden">
+
+  <!-- 方案三 + 方案四融合：演算法等高線波紋與互動磁場向量點陣 Canvas 背景 -->
+  <canvas id="liveFluidCanvas" class="fixed inset-0 pointer-events-none z-0 w-full h-full"></canvas>
+
+  <!-- 頂部導航列 / Top Header -->
+  <header class="relative z-10 w-full max-w-5xl mx-auto px-6 py-7 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-claude-terracotta text-white flex items-center justify-center shadow-md shadow-claude-terracotta/20">
+        <i data-lucide="compass" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="font-serif text-2xl tracking-tight text-claude-text dark:text-claude-darkText font-medium">Samuel's Hub</h1>
+        <p class="text-xs text-claude-muted dark:text-claude-darkMuted font-sans">Workspace &bull; yph.app</p>
+      </div>
+    </div>
+
+    <!-- 頂部狀態列：DSE 倒數 + GPS 天氣 (可點擊) + 時鐘 + 工具按鈕 -->
+    <div class="flex items-center flex-wrap gap-2 sm:gap-2.5">
+      
+      <!-- DSE 中文卷一即時倒數膠囊 (2027年4月8日開考) -->
+      <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-claude-terracotta/35 dark:border-claude-terracotta/40 bg-claude-terracotta/10 text-claude-terracotta text-xs font-medium shadow-sm backdrop-blur-md" title="2027 DSE 中國語文（卷一／卷二）開考時間：2027-04-08 08:30">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-claude-terracotta animate-pulse"></i>
+        <span id="dseCountdownText">DSE 卷一 · 載入中...</span>
+      </div>
+
+      <!-- 基於 GPS 定位的實時天氣膠囊 (點擊彈出詳細氣象儀表板) -->
+      <button onclick="toggleWeatherModal()" id="weatherBadge" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/60 dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta dark:hover:border-claude-terracotta text-xs text-claude-muted dark:text-claude-darkMuted backdrop-blur-md shadow-sm transition-all cursor-pointer group" title="點擊檢視詳細氣象指標">
+        <span id="weatherIconContainer"><i data-lucide="cloud-sun" class="w-3.5 h-3.5 text-amber-500"></i></span>
+        <span id="weatherTemp" class="font-mono font-medium text-claude-text dark:text-claude-darkText">--°C</span>
+        <span id="weatherCondition" class="hidden sm:inline text-[11px]">定位中...</span>
+        <i data-lucide="info" class="w-3 h-3 text-claude-muted/60 group-hover:text-claude-terracotta transition-colors ml-0.5"></i>
+      </button>
+
+      <!-- 實時時間 -->
+      <div id="statusBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/60 dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 text-xs text-claude-muted dark:text-claude-darkMuted backdrop-blur-md shadow-sm">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="liveClock">00:00</span>
+      </div>
+
+      <!-- 層疊卡片遊戲按鈕 -->
+      <button onclick="openGameModal()" class="px-3 py-1.5 rounded-xl border border-white/70 dark:border-claude-darkBorder hover:border-claude-terracotta bg-white/80 dark:bg-claude-darkCard/80 hover:text-claude-terracotta transition-all text-xs font-medium flex items-center gap-1.5 shadow-sm backdrop-blur-md" title="層疊卡片遊戲">
+        <i data-lucide="layers" class="w-4 h-4 text-claude-terracotta"></i>
+        <span class="hidden sm:inline">層疊卡片</span>
+      </button>
+
+      <!-- 隨手便簽 -->
+      <button onclick="toggleScratchpad()" class="p-2.5 rounded-xl border border-white/70 dark:border-claude-darkBorder hover:border-claude-terracotta bg-white/80 dark:bg-claude-darkCard/80 hover:text-claude-terracotta transition-all text-sm flex items-center gap-1.5 shadow-sm backdrop-blur-md" title="輕量便簽 · Scratchpad">
+        <i data-lucide="notebook-pen" class="w-4 h-4"></i>
+      </button>
+
+      <!-- 番茄鐘與工具 -->
+      <button onclick="toggleToolModal()" class="p-2.5 rounded-xl border border-white/70 dark:border-claude-darkBorder hover:border-claude-terracotta bg-white/80 dark:bg-claude-darkCard/80 hover:text-claude-terracotta transition-all text-sm flex items-center gap-1.5 shadow-sm backdrop-blur-md" title="小工具 · Tools">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+      </button>
+
+      <!-- 外觀主題切換 -->
+      <button onclick="toggleTheme()" class="p-2.5 rounded-xl border border-white/70 dark:border-claude-darkBorder hover:border-claude-terracotta bg-white/80 dark:bg-claude-darkCard/80 transition-all text-claude-muted dark:text-claude-darkMuted shadow-sm backdrop-blur-md" title="切換外觀 · Theme">
+        <i id="themeIcon" data-lucide="moon" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主內容區域 / Main Container -->
+  <main class="relative z-10 w-full max-w-5xl mx-auto px-6 flex-1 flex flex-col pb-16">
+    
+    <!-- AI 打字機標題與中央搜尋區塊 / Dynamic AI Typing Omnibar -->
+    <div class="my-6 md:my-10 text-center">
+      
+      <!-- AI 打字機標題 -->
+      <div class="min-h-[2.75rem] flex items-center justify-center">
+        <h2 id="aiHeading" class="font-serif text-3xl sm:text-4xl text-claude-text dark:text-claude-darkText font-normal italic tracking-tight inline-flex items-center">
+          <span id="typedGreeting"></span>
+          <span id="typingCursor" class="inline-block w-[2.5px] h-7 sm:h-8 bg-claude-terracotta ml-1 animate-pulse"></span>
+        </h2>
+      </div>
+
+      <!-- Claude 經典液態磨砂搜尋框 / Liquid Omnibar -->
+      <div class="mt-6 max-w-2xl mx-auto relative group">
+        <div class="relative bg-white/75 dark:bg-claude-darkCard/80 backdrop-blur-xl rounded-2xl border border-white/80 dark:border-claude-darkBorder focus-within:border-claude-terracotta dark:focus-within:border-claude-terracotta shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all p-2 flex flex-col gap-2">
+          
+          <div class="flex items-center px-3 pt-1">
+            <i data-lucide="search" class="w-5 h-5 text-claude-muted dark:text-claude-darkMuted mr-2.5"></i>
+            <input 
+              id="omniInput" 
+              type="text" 
+              placeholder="搜尋站點、社群或輸入關鍵字即時過濾... (按 Enter 搜尋)"
+              class="w-full bg-transparent text-sm focus:outline-none placeholder-claude-muted/60 dark:placeholder-claude-darkMuted/60 text-claude-text dark:text-claude-darkText"
+              oninput="handleLiveFilter()"
+              onkeydown="handleSearchKey(event)"
+            >
+            <span class="text-[10px] px-1.5 py-0.5 rounded border border-claude-border/80 dark:border-claude-darkBorder text-claude-muted dark:text-claude-darkMuted font-mono">/</span>
+          </div>
+
+          <!-- 快速切換搜尋引擎 -->
+          <div class="flex items-center justify-between pt-1 border-t border-claude-border/40 dark:border-claude-darkBorder/50 px-2 text-xs">
+            <div class="flex items-center gap-1.5 overflow-x-auto py-1">
+              <span class="text-[11px] text-claude-muted dark:text-claude-darkMuted mr-1">引擎:</span>
+              <button onclick="setEngine('google')" class="engine-badge active px-2.5 py-0.5 rounded-full text-[11px] bg-claude-terracotta text-white font-medium">Google</button>
+              <button onclick="setEngine('duckduckgo')" class="engine-badge px-2.5 py-0.5 rounded-full text-[11px] text-claude-muted hover:text-claude-text dark:text-claude-darkMuted">DuckDuckGo</button>
+              <button onclick="setEngine('github')" class="engine-badge px-2.5 py-0.5 rounded-full text-[11px] text-claude-muted hover:text-claude-text dark:text-claude-darkMuted">GitHub</button>
+              <button onclick="setEngine('academic')" class="engine-badge px-2.5 py-0.5 rounded-full text-[11px] text-claude-muted hover:text-claude-text dark:text-claude-darkMuted">Scholar</button>
+            </div>
+            <button onclick="clearSearch()" id="clearBtn" class="text-xs text-claude-muted hover:text-claude-terracotta hidden">清除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 導覽分類卡片網格 (Liquid Glass Grid) -->
+    <div class="space-y-10 mt-2">
+
+      <!-- 區塊 1: 社交媒體與影音平台 (Official Inline SVGs) -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <i data-lucide="share-2" class="w-4 h-4 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg tracking-tight font-medium">社交與創作 &bull; Social & Media</h3>
+          <span class="text-xs text-claude-muted dark:text-claude-darkMuted">視覺作品、影音與代碼倉庫</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          
+          <!-- Instagram -->
+          <a href="https://www.instagram.com/y.pakh" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 50ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Instagram</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">@y.pakh</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Photo & Stories</span>
+              <span class="font-mono text-[10px] text-pink-600 dark:text-pink-400">● IG</span>
+            </div>
+          </a>
+
+          <!-- YouTube -->
+          <a href="https://youtube.com/@ypakh" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 90ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">YouTube</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">@ypakh</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Channel & Vlogs</span>
+              <span class="font-mono text-[10px] text-red-600 dark:text-red-400">● Video</span>
+            </div>
+          </a>
+
+          <!-- GitHub -->
+          <a href="https://github.com/SamuelYuen0201" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 130ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">GitHub</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">SamuelYuen0201</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Code Repositories</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● Dev</span>
+            </div>
+          </a>
+
+          <!-- Spotify -->
+          <a href="https://open.spotify.com/user/31fm5nzg362ywkafyhyqrghz3bzq" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 170ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.464-1.027.249-2.812-1.718-6.352-2.107-10.521-1.155-.403.092-.806-.16-.898-.563-.092-.403.16-.806.563-.898 4.569-1.044 8.508-.597 11.634 1.34.353.215.464.674.249 1.027zm1.465-3.26c-.27.441-.849.58-1.29.31-3.219-1.979-8.125-2.55-11.932-1.393-.497.151-1.024-.134-1.175-.631-.151-.497.134-1.024.631-1.175 4.357-1.322 9.775-.683 13.456 1.583.441.27.58.849.31 1.29zm.126-3.41c-3.86-2.292-10.229-2.503-13.914-1.385-.593.18-1.223-.162-1.403-.755-.18-.593.162-1.223.755-1.403 4.238-1.286 11.275-1.043 15.727 1.598.533.316.708 1.008.392 1.541-.316.533-1.008.708-1.541.392z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Spotify</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1">Music Profile</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Playlists & Tracks</span>
+              <span class="font-mono text-[10px] text-green-600 dark:text-green-400">● Audio</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- 區塊 2: 核心儲存與網絡基礎架構 (Storage & Infrastructure) -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <i data-lucide="server" class="w-4 h-4 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg tracking-tight font-medium">儲存與管理 &bull; Storage & Infrastructure</h3>
+          <span class="text-xs text-claude-muted dark:text-claude-darkMuted">Synology NAS 主機與媒體服務</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          
+          <!-- nas.samuelyuen.com -->
+          <a href="https://nas.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 210ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                  <i data-lucide="hard-drive" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Synology DSM</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">nas.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>DSM 控制台</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 5001</span>
+            </div>
+          </a>
+
+          <!-- photo.samuelyuen.com -->
+          <a href="https://photo.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 240ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <i data-lucide="camera" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Immich 相片庫</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">photo.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Photo Cloud</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 2283</span>
+            </div>
+          </a>
+
+          <!-- emby.samuelyuen.com -->
+          <a href="https://emby.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 270ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 flex items-center justify-center">
+                  <i data-lucide="tv" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Emby 影音媒體庫</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">emby.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Media Server</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 8096</span>
+            </div>
+          </a>
+
+          <!-- browse.samuelyuen.com -->
+          <a href="https://browse.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 300ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <i data-lucide="folder-search" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Browse 檔案穿透</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">browse.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>File Browser</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● LAN Proxy</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- 區塊 3: 筆記、學習與日程 (Notes, Study & Schedule) -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <i data-lucide="book-open" class="w-4 h-4 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg tracking-tight font-medium">筆記、學習與日程 &bull; Notes, Study & Schedule</h3>
+          <span class="text-xs text-claude-muted dark:text-claude-darkMuted">日常靈感、檢定題庫與行事曆</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          
+          <!-- memos.yph.app -->
+          <a href="https://memos.yph.app" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 330ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <i data-lucide="message-square-quote" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Memos (Primary)</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">memos.yph.app</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>碎片筆記平台</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 5230</span>
+            </div>
+          </a>
+
+          <!-- memos.samuelyuen.com -->
+          <a href="https://memos.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 370ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <i data-lucide="sticky-note" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Memos (Mirror)</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">memos.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>備用筆記節點</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 5230</span>
+            </div>
+          </a>
+
+          <!-- jlpt.samuelyuen.com -->
+          <a href="https://jlpt.samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 410ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <i data-lucide="languages" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">JLPT 日本語學習庫</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">jlpt.samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>N2 &bull; N3 練習題庫</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 8321</span>
+            </div>
+          </a>
+
+          <!-- CalcX (HKDSE 數學科學計算器) -->
+          <a href="https://calcx-public-beta.netlify.app/" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 450ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                  <i data-lucide="calculator" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">CalcX 科學計算器</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">calcx-public-beta.netlify.app</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>DSE 數學 &bull; fx-50FH II</span>
+              <span class="font-mono text-[10px] text-violet-600 dark:text-violet-400">● Beta</span>
+            </div>
+          </a>
+
+          <!-- Google Calendar (Fast Visit) -->
+          <a href="https://calendar.google.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 490ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">
+                Google Calendar
+              </h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">calendar.google.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>溫習與行事曆</span>
+              <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400">● Schedule</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- 區塊 4: 個人主頁與探索發布 (Identity, Sites & Maps) -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <i data-lucide="globe" class="w-4 h-4 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg tracking-tight font-medium">個人主頁與探索發布 &bull; Identity, Sites & Maps</h3>
+          <span class="text-xs text-claude-muted dark:text-claude-darkMuted">前端發布、個人品牌與私房散步推薦</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          
+          <!-- samuelyuen.com -->
+          <a href="https://samuelyuen.com" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 530ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-stone-500/10 text-stone-700 dark:text-stone-300 flex items-center justify-center">
+                  <i data-lucide="user" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">Samuel Yuen 個人主站</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">samuelyuen.com</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Main Portfolio</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 4321</span>
+            </div>
+          </a>
+
+          <!-- yph.app -->
+          <a href="https://yph.app" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 570ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="link" class="w-4 h-4"></i>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">YPH.APP 短鏈入口</h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1 font-mono">yph.app</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Short Link & Redir</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">● 4321</span>
+            </div>
+          </a>
+
+          <!-- 香港嘅隱世秘境 (Google Maps 推薦清單) -->
+          <a href="https://www.google.com/maps/placelists/list/wuVDURkR-kQWhsMMaLCWmHU3Sd0hHg?source=sh%2Fx%2Fuk%2Fm0%2F0&kgs=f9919117eb146101" target="_blank" class="nav-card liquid-glass animate-card group p-4 rounded-2xl flex flex-col justify-between" style="animation-delay: 610ms;">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-claude-muted group-hover:text-claude-terracotta transition-colors"></i>
+              </div>
+              <h4 class="font-medium text-sm text-claude-text dark:text-claude-darkText group-hover:text-claude-terracotta transition-colors">
+                香港嘅隱世秘境 ><!🫧✨
+              </h4>
+              <p class="text-xs text-claude-muted dark:text-claude-darkMuted mt-1">Samuel Yuen &bull; 私房散步清單</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center justify-between text-[11px] text-claude-muted">
+              <span>Google Maps 私房清單</span>
+              <span class="font-mono text-[10px] text-cyan-600 dark:text-cyan-400">● Maps</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- 區塊 5: 網站底部空間 — 旅行珍貴媒體畫廊 (Immich Travel Memories Gallery) -->
+      <div class="pt-2">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-2">
+            <i data-lucide="aperture" class="w-4 h-4 text-claude-terracotta animate-spin" style="animation-duration: 14s;"></i>
+            <h3 class="font-serif text-lg tracking-tight font-medium">旅行珍貴媒體 &bull; Travel Memories Gallery</h3>
+            <span id="immichAlbumBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-claude-terracotta/10 text-claude-terracotta font-medium">Immich Live</span>
+          </div>
+
+          <!-- 畫廊控制列 -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <button onclick="prevImmichSlide()" id="btnPrevSlide" class="p-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta text-claude-muted hover:text-claude-terracotta transition-all" title="上一張">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleImmichPlay()" id="btnPlayPauseSlide" class="p-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta text-claude-muted hover:text-claude-terracotta transition-all" title="暫停 / 播放隨機輪播">
+              <i id="playPauseIcon" data-lucide="pause" class="w-4 h-4"></i>
+            </button>
+            <button onclick="shuffleImmichSlide()" id="btnShuffleSlide" class="px-2.5 py-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta text-claude-muted hover:text-claude-terracotta transition-all flex items-center gap-1" title="隨機抽取下一張回憶">
+              <i data-lucide="shuffle" class="w-3.5 h-3.5 text-claude-terracotta"></i>
+              <span class="hidden sm:inline">隨機回憶</span>
+            </button>
+            <button onclick="nextImmichSlide()" id="btnNextSlide" class="p-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta text-claude-muted hover:text-claude-terracotta transition-all" title="下一張">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleGalleryViewMode()" id="btnSwitchGalleryMode" class="px-2.5 py-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white/70 dark:bg-claude-darkCard/70 hover:border-claude-terracotta text-claude-muted hover:text-claude-terracotta transition-all flex items-center gap-1" title="切換隨機幻燈片或完整內嵌相簿">
+              <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+              <span id="galleryModeText" class="hidden sm:inline">內嵌相簿視窗</span>
+            </button>
+            <a href="https://photo.samuelyuen.com/share/Ac7L4VgHBhpl5f0wbtm4xt7kiqzvjPAggAS4geDpaFuO3oJ1zOhzbUzkQn30vPI9NGE" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-claude-terracotta text-white hover:bg-claude-terracottaHover transition-all flex items-center gap-1 font-medium shadow-sm">
+              <span>開啟相簿</span>
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- 畫廊主視窗 -->
+        <div class="gallery-glass rounded-3xl p-2.5 sm:p-3.5 animate-card relative overflow-hidden" style="animation-delay: 650ms;">
+          
+          <!-- 模式 A: 智能隨機播放幻燈片舞台 (Random Slideshow Stage) -->
+          <div id="immichSlideshowStage" class="relative w-full h-[340px] sm:h-[440px] rounded-2xl overflow-hidden bg-stone-900/90 flex items-center justify-center group">
+            
+            <!-- 背景模糊氛圍層 (Ambient Blur Backdrop) -->
+            <img id="immichAmbientBg" src="" alt="" class="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-45 transition-all duration-1000 pointer-events-none hidden" />
+
+            <!-- 主相片顯示層 -->
+            <img id="immichMainImage" src="" alt="Travel Memory" class="relative z-10 max-h-full max-w-full object-contain rounded-lg shadow-2xl transition-opacity duration-700 animate-kenburns hidden" />
+
+            <!-- 主影片播放層 (若抽中旅行影片自動靜音播放) -->
+            <video id="immichMainVideo" class="relative z-10 max-h-full max-w-full object-contain rounded-lg shadow-2xl transition-opacity duration-700 hidden" playsinline muted loop controls></video>
+
+            <!-- 載入中與備用提示層 -->
+            <div id="immichStatusOverlay" class="relative z-20 flex flex-col items-center justify-center text-center p-6 text-white/90 max-w-md">
+              <div class="w-11 h-11 rounded-2xl bg-claude-terracotta/20 border border-claude-terracotta/40 text-claude-terracotta flex items-center justify-center mb-3 animate-pulse">
+                <i data-lucide="camera" class="w-5 h-5"></i>
+              </div>
+              <p id="immichStatusTitle" class="font-serif text-lg font-medium">正在連接 Immich 旅行媒體庫...</p>
+              <p id="immichStatusSub" class="text-xs text-white/60 mt-1">正在隨機抽取 photo.samuelyuen.com 分享相簿中的珍貴時刻</p>
+            </div>
+
+            <!-- 左下角拍攝資訊浮層 (EXIF / 日期 / 地點) -->
+            <div id="immichMetaOverlay" class="absolute bottom-3 left-3 right-3 sm:right-auto z-20 px-3.5 py-2 rounded-xl bg-black/55 backdrop-blur-md border border-white/15 text-white flex items-center justify-between sm:justify-start gap-4 text-xs opacity-90 group-hover:opacity-100 transition-opacity hidden">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="immichAssetDate" class="font-mono text-[11px]">--</span>
+              </div>
+              <div id="immichAssetLocationWrap" class="flex items-center gap-1 text-amber-300/90 hidden">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                <span id="immichAssetLocation" class="text-[11px] truncate max-w-[180px]">--</span>
+              </div>
+              <span id="immichAssetCounter" class="font-mono text-[10px] text-white/60 px-1.5 py-0.5 rounded bg-white/10">1 / --</span>
+            </div>
+          </div>
+
+          <!-- 模式 B: 完整內嵌 Immich 分享頁視窗 (Iframe Embed Stage) -->
+          <div id="immichIframeStage" class="relative w-full h-[460px] sm:h-[540px] rounded-2xl overflow-hidden bg-stone-950 hidden">
+            <iframe 
+              id="immichShareIframe"
+              src="about:blank" 
+              class="w-full h-full border-0"
+              allow="fullscreen; autoplay"
+              loading="lazy"
+              title="Immich Travel Shared Album">
+            </iframe>
+          </div>
+
+          <!-- 底部縮圖快速預覽列 (Thumbnail Strip) -->
+          <div id="immichThumbStrip" class="mt-2.5 pt-2 border-t border-claude-border/40 dark:border-claude-darkBorder/40 flex items-center gap-2 overflow-x-auto py-1 hidden">
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 點擊天氣顯示的詳細氣象儀表板彈窗 (Weather Detail Modal) -->
+  <div id="weatherModal" class="fixed inset-0 bg-black/45 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-claude-cream/95 dark:bg-claude-darkCard/95 backdrop-blur-2xl rounded-3xl border border-white/60 dark:border-claude-darkBorder p-6 shadow-2xl flex flex-col">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-claude-border dark:border-claude-darkBorder">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <i data-lucide="cloud-sun" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-serif text-lg font-medium text-claude-text dark:text-claude-darkText">實時氣象儀表板 &bull; Weather</h3>
+            <p id="weatherModalLoc" class="text-[11px] text-claude-muted dark:text-claude-darkMuted">GPS 定位氣象數據</p>
+          </div>
+        </div>
+        <button onclick="toggleWeatherModal()" class="text-claude-muted hover:text-claude-text p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 主體即時指標 -->
+      <div class="my-5 p-4 rounded-2xl bg-white/70 dark:bg-stone-900/60 border border-white/80 dark:border-claude-darkBorder flex items-center justify-between shadow-sm">
+        <div>
+          <span class="text-xs text-claude-muted uppercase tracking-wider font-semibold">即時氣溫</span>
+          <div id="detailTemp" class="font-serif text-4xl font-medium tracking-tight text-claude-text dark:text-claude-darkText mt-0.5">--°C</div>
+          <span id="detailDesc" class="text-xs text-claude-muted">載入中...</span>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-claude-muted block">體感溫度</span>
+          <span id="detailApparent" class="font-mono text-xl font-medium text-claude-terracotta">--°C</span>
+          <span id="detailRange" class="text-[11px] text-claude-muted block mt-1">最高 --° / 最低 --°</span>
+        </div>
+      </div>
+
+      <!-- 次要指標 Bento 網格 -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-white/50 dark:bg-stone-900/40 border border-claude-border/50 dark:border-claude-darkBorder/60 flex items-center justify-between">
+          <span class="text-claude-muted flex items-center gap-1.5"><i data-lucide="droplets" class="w-3.5 h-3.5 text-blue-500"></i> 相對濕度</span>
+          <strong id="detailHumidity" class="font-mono font-medium">--%</strong>
+        </div>
+        <div class="p-3 rounded-xl bg-white/50 dark:bg-stone-900/40 border border-claude-border/50 dark:border-claude-darkBorder/60 flex items-center justify-between">
+          <span class="text-claude-muted flex items-center gap-1.5"><i data-lucide="wind" class="w-3.5 h-3.5 text-teal-500"></i> 風速</span>
+          <strong id="detailWind" class="font-mono font-medium">-- km/h</strong>
+        </div>
+        <div class="p-3 rounded-xl bg-white/50 dark:bg-stone-900/40 border border-claude-border/50 dark:border-claude-darkBorder/60 flex items-center justify-between">
+          <span class="text-claude-muted flex items-center gap-1.5"><i data-lucide="gauge" class="w-3.5 h-3.5 text-purple-500"></i> 地面氣壓</span>
+          <strong id="detailPressure" class="font-mono font-medium">-- hPa</strong>
+        </div>
+        <div class="p-3 rounded-xl bg-white/50 dark:bg-stone-900/40 border border-claude-border/50 dark:border-claude-darkBorder/60 flex items-center justify-between">
+          <span class="text-claude-muted flex items-center gap-1.5"><i data-lucide="sun" class="w-3.5 h-3.5 text-amber-500"></i> 紫外線指數</span>
+          <strong id="detailUv" class="font-mono font-medium">--</strong>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-claude-border dark:border-claude-darkBorder flex justify-end">
+        <button onclick="toggleWeatherModal()" class="px-4 py-1.5 rounded-full bg-claude-terracotta text-white text-xs font-medium hover:bg-claude-terracottaHover transition-colors">
+          關閉
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 趣味小遊戲彈窗：層疊卡片消除 (CardArt Style Match Game) -->
+  <div id="gameModal" class="fixed inset-0 bg-black/45 backdrop-blur-md z-50 hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-lg bg-claude-cream/90 dark:bg-claude-darkCard/90 backdrop-blur-2xl rounded-3xl border border-white/60 dark:border-claude-darkBorder p-5 sm:p-6 shadow-2xl flex flex-col max-h-[92vh]">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-claude-border dark:border-claude-darkBorder">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-claude-terracotta/10 text-claude-terracotta flex items-center justify-center">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-serif text-lg font-medium">層疊卡片消除 &bull; Card Match</h3>
+            <p class="text-[11px] text-claude-muted dark:text-claude-darkMuted">CardArt 風格 &bull; 點擊未覆蓋卡片湊齊 3 張消除</p>
+          </div>
+        </div>
+        <button onclick="closeGameModal()" class="text-claude-muted hover:text-claude-text p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between py-3 px-1 text-xs">
+        <div class="flex items-center gap-4">
+          <span>分數: <strong id="gameScore" class="font-mono text-claude-terracotta text-sm">0</strong></span>
+          <span>剩餘卡片: <strong id="gameRemaining" class="font-mono text-sm">36</strong></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="undoGameMove()" id="btnUndo" class="px-2.5 py-1 rounded-lg border border-claude-border dark:border-claude-darkBorder text-xs text-claude-muted hover:text-claude-terracotta hover:border-claude-terracotta transition-colors flex items-center gap-1">
+            <i data-lucide="undo" class="w-3.5 h-3.5"></i> 撤回
+          </button>
+          <button onclick="initGame()" class="px-2.5 py-1 rounded-lg bg-claude-terracotta text-white text-xs font-medium hover:bg-claude-terracottaHover transition-colors flex items-center gap-1">
+            <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> 重開
+          </button>
+        </div>
+      </div>
+
+      <div class="relative w-full h-[320px] sm:h-[350px] bg-white/50 dark:bg-claude-darkBg/60 backdrop-blur-sm rounded-2xl border border-claude-border dark:border-claude-darkBorder overflow-hidden shadow-inner flex items-center justify-center">
+        <div id="gameBoard" class="relative w-[310px] h-[310px]"></div>
+
+        <div id="gameOverlay" class="absolute inset-0 bg-white/85 dark:bg-claude-darkCard/90 backdrop-blur-xs flex flex-col items-center justify-center hidden z-30">
+          <div id="gameOverlayIcon" class="w-12 h-12 rounded-full bg-claude-terracotta/10 text-claude-terracotta flex items-center justify-center mb-2">
+            <i data-lucide="trophy" class="w-6 h-6"></i>
+          </div>
+          <h4 id="gameOverlayTitle" class="font-serif text-2xl font-medium mb-1">通關大吉！</h4>
+          <p id="gameOverlayMsg" class="text-xs text-claude-muted mb-4">全部層疊卡片已清空！</p>
+          <button onclick="initGame()" class="px-5 py-2 rounded-full bg-claude-terracotta text-white text-xs font-medium hover:bg-claude-terracottaHover">再玩一局</button>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-claude-border dark:border-claude-darkBorder flex flex-col items-center">
+        <div class="flex items-center justify-between w-full mb-1.5 px-1 text-[11px] text-claude-muted">
+          <span>卡片收集槽 (上限 7 張，槽滿即結束)</span>
+          <span id="slotCount">0 / 7</span>
+        </div>
+        <div id="gameDock" class="w-full h-16 bg-stone-100/70 dark:bg-stone-900/60 rounded-xl border border-claude-border dark:border-claude-darkBorder p-1.5 flex items-center gap-1.5 justify-start overflow-hidden"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 側滑輕量便簽小工具 / Scratchpad -->
+  <aside id="scratchpadDrawer" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white/90 dark:bg-claude-darkCard/90 backdrop-blur-2xl border-l border-white/60 dark:border-claude-darkBorder shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col p-6">
+    <div class="flex items-center justify-between pb-4 border-b border-claude-border dark:border-claude-darkBorder">
+      <div class="flex items-center gap-2">
+        <i data-lucide="notebook-pen" class="w-4 h-4 text-claude-terracotta"></i>
+        <h3 class="font-serif text-lg font-medium">隨手便簽 · Scratchpad</h3>
+      </div>
+      <button onclick="toggleScratchpad()" class="text-claude-muted hover:text-claude-text p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 py-4 flex flex-col">
+      <textarea 
+        id="scratchText" 
+        class="w-full flex-1 p-3 bg-claude-cream/60 dark:bg-claude-darkBg/60 rounded-xl border border-claude-border dark:border-claude-darkBorder focus:border-claude-terracotta focus:outline-none text-sm resize-none font-sans leading-relaxed"
+        placeholder="記錄即時指令、終端 IP 或靈感筆記... (內容自動儲存至本機)"
+        oninput="saveScratchpad()"
+      ></textarea>
+      
+      <div class="flex items-center justify-between text-xs text-claude-muted dark:text-claude-darkMuted mt-3">
+        <span id="scratchCount">0 字元</span>
+        <button onclick="copyScratchpad()" class="hover:text-claude-terracotta flex items-center gap-1">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> 複製全部
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 專注計時與工具彈窗 / Utility Modal -->
+  <div id="toolModal" class="fixed inset-0 bg-black/40 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/90 dark:bg-claude-darkCard/90 backdrop-blur-2xl rounded-3xl border border-white/60 dark:border-claude-darkBorder p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-claude-border dark:border-claude-darkBorder">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg font-medium">極簡小工具 · Utilities</h3>
+        </div>
+        <button onclick="toggleToolModal()" class="text-claude-muted hover:text-claude-text p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="mt-4 p-4 rounded-2xl bg-claude-cream/60 dark:bg-claude-darkBg/60 border border-claude-border dark:border-claude-darkBorder text-center">
+        <span class="text-xs text-claude-muted uppercase tracking-wider font-semibold">專注計時器 · Focus Timer</span>
+        <div class="font-serif text-4xl my-2 tracking-tight font-medium" id="timerDisplay">25:00</div>
+        <div class="flex items-center justify-center gap-2 mt-3">
+          <button onclick="toggleTimer()" id="timerBtn" class="px-4 py-1.5 rounded-full bg-claude-terracotta text-white text-xs font-medium hover:bg-claude-terracottaHover transition-colors">開始</button>
+          <button onclick="resetTimer()" class="px-3 py-1.5 rounded-full border border-claude-border dark:border-claude-darkBorder text-xs text-claude-muted hover:text-claude-text">重設</button>
+        </div>
+      </div>
+
+      <div class="mt-4 p-4 rounded-2xl bg-claude-cream/60 dark:bg-claude-darkBg/60 border border-claude-border dark:border-claude-darkBorder">
+        <span class="text-xs text-claude-muted uppercase tracking-wider font-semibold block mb-2">算式求值 · Quick Calc</span>
+        <div class="flex items-center gap-2">
+          <input id="calcInput" type="text" placeholder="例如: 5*4 + 120/4" class="flex-1 px-3 py-1.5 rounded-xl border border-claude-border dark:border-claude-darkBorder bg-white dark:bg-claude-darkCard text-xs focus:outline-none focus:border-claude-terracotta">
+          <button onclick="runCalc()" class="px-3 py-1.5 rounded-xl bg-claude-terracotta text-white text-xs font-medium">計算</button>
+        </div>
+        <div id="calcResult" class="text-xs text-claude-muted mt-2">結果: <span class="font-mono text-claude-text dark:text-claude-darkText font-medium">-</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 私隱條款與數據收集彈窗 (Privacy Policy & PDPO Modal) -->
+  <div id="privacyModal" class="fixed inset-0 bg-black/45 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-claude-cream/95 dark:bg-claude-darkCard/95 backdrop-blur-2xl rounded-3xl border border-white/60 dark:border-claude-darkBorder p-6 shadow-2xl flex flex-col max-h-[85vh]">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-claude-border dark:border-claude-darkBorder">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-claude-terracotta"></i>
+          <h3 class="font-serif text-lg font-medium">私隱條款與遙測聲明 &bull; Privacy & Telemetry</h3>
+        </div>
+        <button onclick="togglePrivacyModal()" class="text-claude-muted hover:text-claude-text p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto py-4 text-xs leading-relaxed space-y-3.5 text-claude-muted dark:text-claude-darkMuted">
+        <p class="font-medium text-claude-text dark:text-claude-darkText">
+          歡迎使用 Samuel Yuen 個人導航中心。為確保服務品質與提供實時功能，本站依循香港《個人資料（私隱）條例》（PDPO）原則處理相關資訊：
+        </p>
+        <div class="space-y-2">
+          <div class="p-3 rounded-xl bg-white/60 dark:bg-stone-900/60 border border-claude-border/60 dark:border-claude-darkBorder">
+            <strong class="text-claude-text dark:text-claude-darkText block mb-1">1. GPS 地理位置資訊 (GPS Addressing)</strong>
+            <span>本站僅在訪客主動允許授權後，經由瀏覽器標準 Geolocation API 獲取座標，以呈現即時天氣及進行安全審計。訪客可隨時於瀏覽器設定中關閉定位授權。</span>
+          </div>
+          <div class="p-3 rounded-xl bg-white/60 dark:bg-stone-900/60 border border-claude-border/60 dark:border-claude-darkBorder">
+            <strong class="text-claude-text dark:text-claude-darkText block mb-1">2. 設備與瀏覽器指紋 (Browser Fingerprint)</strong>
+            <span>本站會分析 Canvas 渲染特徵、WebGL 顯示晶片、螢幕解析度、時區與作業系統，合成唯一的非可逆指紋 Hash，用於識別異常流量與訪問分析。</span>
+          </div>
+          <div class="p-3 rounded-xl bg-white/60 dark:bg-stone-900/60 border border-claude-border/60 dark:border-claude-darkBorder">
+            <strong class="text-claude-text dark:text-claude-darkText block mb-1">3. 資料儲存與安全保護</strong>
+            <span>所有日誌直接保存於自架 Synology NAS 之獨立 SQLite 資料庫中，絕不轉售或提供給任何第三方廣告商。</span>
+          </div>
+        </div>
+        <p class="text-[11px] text-claude-muted/80">
+          若對資料有任何查詢，可透過個人主頁聯繫站長。
+        </p>
+      </div>
+
+      <div class="pt-3 border-t border-claude-border dark:border-claude-darkBorder flex justify-end">
+        <button onclick="togglePrivacyModal()" class="px-5 py-2 rounded-full bg-claude-terracotta text-white text-xs font-medium hover:bg-claude-terracottaHover transition-colors">
+          明白並關閉
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 頁腳 / Footer -->
+  <footer class="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 border-t border-claude-border/50 dark:border-claude-darkBorder/50 flex flex-col sm:flex-row items-center justify-between text-xs text-claude-muted dark:text-claude-darkMuted gap-2">
+    <div class="flex items-center gap-2">
+      <span class="font-serif italic">&copy; Samuel Yuen</span>
+      <span>&bull;</span>
+      <button onclick="togglePrivacyModal()" class="hover:text-claude-terracotta transition-colors underline underline-offset-2">私隱條款 &bull; Privacy</button>
+    </div>
+    <div class="text-[11px]">
+      Press <kbd class="px-1.5 py-0.5 rounded bg-claude-border/50 dark:bg-claude-darkBorder font-mono text-[10px]">/</kbd> to search anytime
+    </div>
+  </footer>
+
+  <!-- 邏輯腳本 / Core Scripts -->
+  <script>
+    // 初始化 Lucide 圖標
+    lucide.createIcons();
+
+    // =========================================================
+    // 方案三 + 方案四融合引擎：
+    // 1. 等高線地形波紋 (Marching Squares Topographic Flow - 方案四)
+    // 2. 互動式向量磁場點陣與彈簧物理 (Magnetic Dot Matrix & Spring Physics - 方案三)
+    // =========================================================
+    const canvas = document.getElementById('liveFluidCanvas');
+    const ctx = canvas.getContext('2d');
+    let width = 0, height = 0, dpr = 1;
+
+    // 固定種子偽隨機雜訊表 (Deterministic Value Noise Table)
+    const PERM = new Uint8Array(512);
+    (function initNoiseTable() {
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+      let seed = 20260408;
+      for (let i = 255; i > 0; i--) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const j = seed % (i + 1);
+        const tmp = p[i]; p[i] = p[j]; p[j] = tmp;
+      }
+      for (let i = 0; i < 512; i++) PERM[i] = p[i & 255];
+    })();
+
+    function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function lerp(a, b, t) { return a + t * (b - a); }
+
+    function grad2(hash, x, y) {
+      const h = hash & 7;
+      const u = h < 4 ? x : y;
+      const v = h < 4 ? y : x;
+      return ((h & 1) ? -u : u) + ((h & 2) ? -2.0 * v : 2.0 * v);
+    }
+
+    function perlin2D(x, y) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      x -= Math.floor(x);
+      y -= Math.floor(y);
+      const u = fade(x);
+      const v = fade(y);
+      const A = PERM[X] + Y;
+      const B = PERM[X + 1] + Y;
+      return lerp(
+        lerp(grad2(PERM[A], x, y), grad2(PERM[B], x - 1, y), u),
+        lerp(grad2(PERM[A + 1], x, y - 1), grad2(PERM[B + 1], x - 1, y - 1), u),
+        v
+      ) * 0.5 + 0.5;
+    }
+
+    // 雙八度平滑地貌噪聲函數 (回傳 0.0 ~ 1.0 海拔高度)
+    function sampleElevation(x, y, t) {
+      const scale1 = 0.0019;
+      const scale2 = 0.0044;
+      const n1 = perlin2D(x * scale1 + t * 0.14, y * scale1 - t * 0.10);
+      const n2 = perlin2D(x * scale2 - t * 0.09 + 41.7, y * scale2 + t * 0.12 + 19.3);
+      return n1 * 0.72 + n2 * 0.28;
+    }
+
+    // 互動磁場點陣與等高線網格配置
+    let dotGrid = [];
+    let topoCols = 0, topoRows = 0;
+    let topoCellSize = 34;
+    let fieldValues = new Float32Array(0);
+    let magneticPulses = [];
+    let pointer = {
+      x: -9999, y: -9999,
+      vx: 0, vy: 0,
+      lastX: -9999, lastY: -9999,
+      active: false
+    };
+
+    function initHybridBackground() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // 1. 初始化方案三：整齊幾何向量磁場點陣 (Magnetic Dot Matrix)
+      dotGrid = [];
+      const spacing = width < 640 ? 34 : 30;
+      const cols = Math.ceil(width / spacing) + 1;
+      const rows = Math.ceil(height / spacing) + 1;
+      const offsetX = (width - (cols - 1) * spacing) * 0.5;
+      const offsetY = (height - (rows - 1) * spacing) * 0.5;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const ox = offsetX + c * spacing;
+          const oy = offsetY + r * spacing;
+          dotGrid.push({
+            ox, oy,
+            x: ox, y: oy,
+            vx: 0, vy: 0,
+            energy: 0,
+            angle: 0
+          });
+        }
+      }
+
+      // 2. 初始化方案四：Marching Squares 等高線取樣網格
+      topoCellSize = width < 640 ? 38 : 32;
+      topoCols = Math.ceil(width / topoCellSize) + 1;
+      topoRows = Math.ceil(height / topoCellSize) + 1;
+      fieldValues = new Float32Array(topoCols * topoRows);
+    }
+
+    window.addEventListener('resize', initHybridBackground);
+    initHybridBackground();
+
+    // 滑鼠與觸控磁場互動事件
+    function updatePointer(clientX, clientY) {
+      pointer.vx = clientX - (pointer.lastX === -9999 ? clientX : pointer.lastX);
+      pointer.vy = clientY - (pointer.lastY === -9999 ? clientY : pointer.lastY);
+      pointer.x = clientX;
+      pointer.y = clientY;
+      pointer.lastX = clientX;
+      pointer.lastY = clientY;
+      pointer.active = true;
+    }
+
+    function spawnMagneticPulse(x, y, maxRadius = 260, strength = 1.0) {
+      magneticPulses.push({
+        x, y,
+        radius: 6,
+        maxRadius,
+        speed: 4.8,
+        strength
+      });
+      if (magneticPulses.length > 8) magneticPulses.shift();
+    }
+
+    window.addEventListener('mousemove', (e) => updatePointer(e.clientX, e.clientY), { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('mousedown', (e) => spawnMagneticPulse(e.clientX, e.clientY, 270, 1.35), { passive: true });
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+        spawnMagneticPulse(e.touches[0].clientX, e.touches[0].clientY, 240, 1.2);
+      }
+    }, { passive: true });
+    window.addEventListener('mouseleave', () => {
+      pointer.active = false;
+      pointer.x = -9999;
+      pointer.y = -9999;
+    });
+
+    // Marching Squares 邊緣線性插值輔助函數
+    function interpEdge(x1, y1, v1, x2, y2, v2, level) {
+      const denom = v2 - v1;
+      const mu = Math.abs(denom) < 0.00001 ? 0.5 : (level - v1) / denom;
+      return [x1 + mu * (x2 - x1), y1 + mu * (y2 - y1)];
+    }
+
+    // 繪製特定海拔高度的等高線 (Marching Squares Isoline)
+    function traceIsoline(level) {
+      ctx.beginPath();
+      for (let r = 0; r < topoRows - 1; r++) {
+        const y0 = r * topoCellSize;
+        const y1 = (r + 1) * topoCellSize;
+        const rowOffset = r * topoCols;
+        const nextRowOffset = (r + 1) * topoCols;
+
+        for (let c = 0; c < topoCols - 1; c++) {
+          const x0 = c * topoCellSize;
+          const x1 = (c + 1) * topoCellSize;
+
+          const vTL = fieldValues[rowOffset + c];
+          const vTR = fieldValues[rowOffset + c + 1];
+          const vBR = fieldValues[nextRowOffset + c + 1];
+          const vBL = fieldValues[nextRowOffset + c];
+
+          let mask = 0;
+          if (vTL >= level) mask |= 8;
+          if (vTR >= level) mask |= 4;
+          if (vBR >= level) mask |= 2;
+          if (vBL >= level) mask |= 1;
+          if (mask === 0 || mask === 15) continue;
+
+          // 四個邊界插值點：Top(0), Right(1), Bottom(2), Left(3)
+          let pTop, pRight, pBottom, pLeft;
+          if (mask & 8 ^ (mask & 4) << 1) pTop = interpEdge(x0, y0, vTL, x1, y0, vTR, level);
+          if ((mask & 4) >> 2 ^ (mask & 2) >> 1) pRight = interpEdge(x1, y0, vTR, x1, y1, vBR, level);
+          if ((mask & 2) >> 1 ^ (mask & 1)) pBottom = interpEdge(x0, y1, vBL, x1, y1, vBR, level);
+          if ((mask & 8) >> 3 ^ (mask & 1)) pLeft = interpEdge(x0, y0, vTL, x0, y1, vBL, level);
+
+          switch (mask) {
+            case 1: case 14:
+              ctx.moveTo(pLeft[0], pLeft[1]); ctx.lineTo(pBottom[0], pBottom[1]); break;
+            case 2: case 13:
+              ctx.moveTo(pBottom[0], pBottom[1]); ctx.lineTo(pRight[0], pRight[1]); break;
+            case 3: case 12:
+              ctx.moveTo(pLeft[0], pLeft[1]); ctx.lineTo(pRight[0], pRight[1]); break;
+            case 4: case 11:
+              ctx.moveTo(pTop[0], pTop[1]); ctx.lineTo(pRight[0], pRight[1]); break;
+            case 5:
+              ctx.moveTo(pLeft[0], pLeft[1]); ctx.lineTo(pTop[0], pTop[1]);
+              ctx.moveTo(pBottom[0], pBottom[1]); ctx.lineTo(pRight[0], pRight[1]); break;
+            case 6: case 9:
+              ctx.moveTo(pTop[0], pTop[1]); ctx.lineTo(pBottom[0], pBottom[1]); break;
+            case 7: case 8:
+              ctx.moveTo(pLeft[0], pLeft[1]); ctx.lineTo(pTop[0], pTop[1]); break;
+            case 10:
+              ctx.moveTo(pLeft[0], pLeft[1]); ctx.lineTo(pBottom[0], pBottom[1]);
+              ctx.moveTo(pTop[0], pTop[1]); ctx.lineTo(pRight[0], pRight[1]); break;
+          }
+        }
+      }
+      ctx.stroke();
+    }
+
+    // 等高線海拔閾值（含主等高線 Index Contour 與次等高線）
+    const CONTOUR_LEVELS = [
+      { val: 0.28, major: false },
+      { val: 0.35, major: true },
+      { val: 0.42, major: false },
+      { val: 0.49, major: false },
+      { val: 0.56, major: true },
+      { val: 0.63, major: false },
+      { val: 0.70, major: true }
+    ];
+
+    let animTime = 0;
+
+    function renderHybridBackground() {
+      ctx.clearRect(0, 0, width, height);
+      const isDark = document.documentElement.classList.contains('dark');
+      animTime += 0.0085;
+
+      // ---------------------------------------------------------
+      // A. 游標環境聚光燈 (Ambient Radial Cursor Glow)
+      // ---------------------------------------------------------
+      if (pointer.active) {
+        const spotGrad = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, 320);
+        spotGrad.addColorStop(0, isDark ? 'rgba(217, 119, 87, 0.11)' : 'rgba(217, 119, 87, 0.09)');
+        spotGrad.addColorStop(0.5, isDark ? 'rgba(230, 161, 92, 0.04)' : 'rgba(230, 161, 92, 0.04)');
+        spotGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = spotGrad;
+        ctx.beginPath();
+        ctx.arc(pointer.x, pointer.y, 320, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // ---------------------------------------------------------
+      // B. 方案四：計算並繪製演算法等高線地形波紋 (Topographic Contours)
+      // ---------------------------------------------------------
+      for (let r = 0; r < topoRows; r++) {
+        const y = r * topoCellSize;
+        const rowOffset = r * topoCols;
+        for (let c = 0; c < topoCols; c++) {
+          const x = c * topoCellSize;
+          let elev = sampleElevation(x, y, animTime);
+
+          // 游標磁場對地貌產生輕微隆起扭曲，令等高線與滑鼠產生互動
+          if (pointer.active) {
+            const dx = x - pointer.x;
+            const dy = y - pointer.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 55000) {
+              elev += Math.exp(-distSq / 18000) * 0.085;
+            }
+          }
+          fieldValues[rowOffset + c] = elev;
+        }
+      }
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      for (let i = 0; i < CONTOUR_LEVELS.length; i++) {
+        const lv = CONTOUR_LEVELS[i];
+        if (lv.major) {
+          ctx.strokeStyle = isDark
+            ? 'rgba(217, 119, 87, 0.17)'
+            : 'rgba(217, 119, 87, 0.16)';
+          ctx.lineWidth = 1.15;
+        } else {
+          ctx.strokeStyle = isDark
+            ? 'rgba(237, 235, 232, 0.055)'
+            : 'rgba(122, 117, 109, 0.075)';
+          ctx.lineWidth = 0.75;
+        }
+        traceIsoline(lv.val);
+      }
+
+      // ---------------------------------------------------------
+      // C. 更新點擊磁場脈衝波 (Magnetic Click Pulses)
+      // ---------------------------------------------------------
+      for (let i = magneticPulses.length - 1; i >= 0; i--) {
+        const mp = magneticPulses[i];
+        mp.radius += mp.speed;
+        const progress = mp.radius / mp.maxRadius;
+        if (progress >= 1) {
+          magneticPulses.splice(i, 1);
+          continue;
+        }
+        const ringAlpha = (1 - progress) * (isDark ? 0.28 : 0.22);
+        ctx.beginPath();
+        ctx.arc(mp.x, mp.y, mp.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(217, 119, 87, ${ringAlpha})`;
+        ctx.lineWidth = 1.1 * (1 - progress * 0.5);
+        ctx.stroke();
+      }
+
+      // ---------------------------------------------------------
+      // D. 方案三：互動式向量磁場點陣 (Magnetic Vector Field Dots)
+      // ---------------------------------------------------------
+      const magnetRadius = 165;
+      const springStiffness = 0.075;
+      const damping = 0.82;
+
+      for (let i = 0; i < dotGrid.length; i++) {
+        const d = dotGrid[i];
+
+        // 1. 底層等高線流場微幅呼吸偏移 (令靜態點陣與等高線有機聯動)
+        const localElev = sampleElevation(d.ox, d.oy, animTime);
+        const flowAngle = localElev * Math.PI * 4;
+        const targetX = d.ox + Math.cos(flowAngle) * 1.6;
+        const targetY = d.oy + Math.sin(flowAngle) * 1.6;
+
+        let interactEnergy = 0;
+
+        // 2. 游標磁場排斥與切線渦流力 (Magnetic Dipole Repulsion & Swirl)
+        if (pointer.active) {
+          const dx = d.x - pointer.x;
+          const dy = d.y - pointer.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < magnetRadius && dist > 0.01) {
+            const factor = Math.pow(1 - dist / magnetRadius, 1.8);
+            const radX = dx / dist;
+            const radY = dy / dist;
+            // 結合徑向推開與微弱切線旋渦感
+            const pushForce = factor * 2.65;
+            const swirlForce = factor * 0.45;
+            d.vx += radX * pushForce - radY * swirlForce + pointer.vx * factor * 0.03;
+            d.vy += radY * pushForce + radX * swirlForce + pointer.vy * factor * 0.03;
+            interactEnergy = Math.max(interactEnergy, factor);
+          }
+        }
+
+        // 3. 點擊脈衝波震盪牽引
+        for (let p = 0; p < magneticPulses.length; p++) {
+          const mp = magneticPulses[p];
+          const dx = d.x - mp.x;
+          const dy = d.y - mp.y;
+          const dist = Math.hypot(dx, dy);
+          const distFromWave = Math.abs(dist - mp.radius);
+          const band = 32;
+          if (distFromWave < band && dist > 0.01) {
+            const waveFactor = (1 - distFromWave / band) * (1 - mp.radius / mp.maxRadius) * mp.strength;
+            d.vx += (dx / dist) * waveFactor * 2.2;
+            d.vy += (dy / dist) * waveFactor * 2.2;
+            interactEnergy = Math.max(interactEnergy, waveFactor);
+          }
+        }
+
+        // 4. 胡克定律彈簧歸位物理 (Hooke's Law Spring Return)
+        d.vx += (targetX - d.x) * springStiffness;
+        d.vy += (targetY - d.y) * springStiffness;
+        d.vx *= damping;
+        d.vy *= damping;
+        d.x += d.vx;
+        d.y += d.vy;
+
+        // 計算點陣位移量與磁場能量
+        const disp = Math.hypot(d.x - targetX, d.y - targetY);
+        const targetEnergy = Math.min(1, interactEnergy + disp * 0.045);
+        d.energy += (targetEnergy - d.energy) * 0.18;
+
+        // 海拔高亮：當節點剛好位於主等高線附近時微微發亮
+        const nearContour = (Math.abs(localElev - 0.35) < 0.018 || Math.abs(localElev - 0.56) < 0.018) ? 0.25 : 0;
+        const totalHighlight = Math.min(1, d.energy + nearContour);
+
+        // 當節點受磁場牽引時，由圓點漸變為指向磁場方向嘅精密向量短線 (Vector Field Tick)
+        if (disp > 1.25) {
+          d.angle = Math.atan2(d.y - d.oy, d.x - d.ox);
+          const tickLen = Math.min(7.5, 1.5 + disp * 0.38);
+          const cosA = Math.cos(d.angle) * tickLen;
+          const sinA = Math.sin(d.angle) * tickLen;
+
+          ctx.beginPath();
+          ctx.moveTo(d.x - cosA * 0.6, d.y - sinA * 0.6);
+          ctx.lineTo(d.x + cosA, d.y + sinA);
+          ctx.strokeStyle = `rgba(217, 119, 87, ${0.28 + totalHighlight * 0.58})`;
+          ctx.lineWidth = 1.45;
+          ctx.stroke();
+        } else {
+          // 靜止或微動狀態：極簡幾何圓點
+          const radius = 1.05 + totalHighlight * 0.85;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+          if (totalHighlight > 0.12) {
+            ctx.fillStyle = `rgba(217, 119, 87, ${0.22 + totalHighlight * 0.55})`;
+          } else {
+            ctx.fillStyle = isDark
+              ? 'rgba(237, 235, 232, 0.14)'
+              : 'rgba(122, 117, 109, 0.18)';
+          }
+          ctx.fill();
+        }
+      }
+
+      requestAnimationFrame(renderHybridBackground);
+    }
+    requestAnimationFrame(renderHybridBackground);
+
+    // =========================================================
+    // Immich 旅行珍貴媒體畫廊引擎 (Immich Shared Link Gallery)
+    // =========================================================
+    const IMMICH_BASE_URL = 'https://photo.samuelyuen.com';
+    const IMMICH_SHARE_KEY = 'Ac7L4VgHBhpl5f0wbtm4xt7kiqzvjPAggAS4geDpaFuO3oJ1zOhzbUzkQn30vPI9NGE';
+    const IMMICH_SHARE_PAGE_URL = `${IMMICH_BASE_URL}/share/${IMMICH_SHARE_KEY}`;
+
+    let immichAssets = [];
+    let currentAssetIndex = 0;
+    let immichSlideTimer = null;
+    let isImmichPlaying = true;
+    let isIframeMode = false;
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    async function initImmichGallery() {
+      const candidateEndpoints = [
+        `${IMMICH_BASE_URL}/api/shared-links/me?key=${IMMICH_SHARE_KEY}`,
+        `${IMMICH_BASE_URL}/api/shared-link/me?key=${IMMICH_SHARE_KEY}`
+      ];
+
+      let sharedData = null;
+      for (const endpoint of candidateEndpoints) {
+        try {
+          const res = await fetch(endpoint, { mode: 'cors', credentials: 'omit' });
+          if (res.ok) {
+            sharedData = await res.json();
+            break;
+          }
+        } catch (err) {}
+      }
+
+      if (sharedData) {
+        if (sharedData.album && sharedData.album.albumName) {
+          document.getElementById('immichAlbumBadge').innerText = sharedData.album.albumName;
+        } else if (sharedData.description) {
+          document.getElementById('immichAlbumBadge').innerText = sharedData.description;
+        }
+
+        let rawAssets = [];
+        if (Array.isArray(sharedData.assets) && sharedData.assets.length > 0) {
+          rawAssets = sharedData.assets;
+        } else if (sharedData.album && Array.isArray(sharedData.album.assets) && sharedData.album.assets.length > 0) {
+          rawAssets = sharedData.album.assets;
+        }
+
+        if (rawAssets.length === 0 && sharedData.album && sharedData.album.id) {
+          try {
+            const albumRes = await fetch(`${IMMICH_BASE_URL}/api/albums/${sharedData.album.id}?key=${IMMICH_SHARE_KEY}`, {
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            if (albumRes.ok) {
+              const albumData = await albumRes.json();
+              if (Array.isArray(albumData.assets) && albumData.assets.length > 0) {
+                rawAssets = albumData.assets;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (rawAssets.length > 0) {
+          immichAssets = shuffleArray(rawAssets);
+          buildImmichThumbnailStrip();
+          showImmichAsset(0);
+          startImmichAutoPlay();
+          return;
+        }
+      }
+
+      switchGalleryToIframe(true);
+    }
+
+    function getImmichThumbUrl(assetId, size = 'preview') {
+      return `${IMMICH_BASE_URL}/api/assets/${assetId}/thumbnail?size=${size}&key=${IMMICH_SHARE_KEY}`;
+    }
+
+    function getImmichOriginalUrl(assetId) {
+      return `${IMMICH_BASE_URL}/api/assets/${assetId}/original?key=${IMMICH_SHARE_KEY}`;
+    }
+
+    function getImmichVideoUrl(assetId) {
+      return `${IMMICH_BASE_URL}/api/assets/${assetId}/video/playback?key=${IMMICH_SHARE_KEY}`;
+    }
+
+    function showImmichAsset(index) {
+      if (!immichAssets.length) return;
+      currentAssetIndex = (index + immichAssets.length) % immichAssets.length;
+      const asset = immichAssets[currentAssetIndex];
+
+      const statusOverlay = document.getElementById('immichStatusOverlay');
+      const mainImg = document.getElementById('immichMainImage');
+      const mainVideo = document.getElementById('immichMainVideo');
+      const ambientBg = document.getElementById('immichAmbientBg');
+      const metaOverlay = document.getElementById('immichMetaOverlay');
+
+      const previewUrl = getImmichThumbUrl(asset.id, 'preview');
+      const thumbUrl = getImmichThumbUrl(asset.id, 'thumbnail');
+
+      statusOverlay.classList.add('hidden');
+
+      ambientBg.src = thumbUrl;
+      ambientBg.classList.remove('hidden');
+
+      const isVideo = asset.type === 'VIDEO';
+      if (isVideo) {
+        mainImg.classList.add('hidden');
+        mainVideo.poster = previewUrl;
+        mainVideo.src = getImmichVideoUrl(asset.id);
+        mainVideo.classList.remove('hidden');
+
+        mainVideo.onerror = () => {
+          mainVideo.classList.add('hidden');
+          mainImg.src = previewUrl;
+          mainImg.classList.remove('hidden');
+          mainImg.style.opacity = '1';
+        };
+        mainVideo.play().catch(() => {});
+      } else {
+        mainVideo.pause();
+        mainVideo.removeAttribute('src');
+        mainVideo.classList.add('hidden');
+
+        mainImg.style.opacity = '0.25';
+        mainImg.classList.remove('hidden');
+        mainImg.src = previewUrl;
+        mainImg.onload = () => {
+          mainImg.style.opacity = '1';
+        };
+        mainImg.onerror = () => {
+          if (mainImg.src !== thumbUrl) {
+            mainImg.src = thumbUrl;
+          } else {
+            mainImg.src = getImmichOriginalUrl(asset.id);
+          }
+        };
+      }
+
+      metaOverlay.classList.remove('hidden');
+      const dateStr = asset.fileCreatedAt || asset.localDateTime || asset.createdAt;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        document.getElementById('immichAssetDate').innerText = d.toLocaleDateString('zh-HK', {
+          year: 'numeric', month: 'short', day: 'numeric'
+        });
+      } else {
+        document.getElementById('immichAssetDate').innerText = isVideo ? '🎬 旅行 B-Roll' : '📷 旅行珍貴片段';
+      }
+
+      const locWrap = document.getElementById('immichAssetLocationWrap');
+      const locText = document.getElementById('immichAssetLocation');
+      const city = asset.exifInfo && (asset.exifInfo.city || asset.exifInfo.state || asset.exifInfo.country);
+      if (city) {
+        locText.innerText = [asset.exifInfo.city, asset.exifInfo.country].filter(Boolean).join(', ');
+        locWrap.classList.remove('hidden');
+      } else {
+        locWrap.classList.add('hidden');
+      }
+
+      document.getElementById('immichAssetCounter').innerText = `${currentAssetIndex + 1} / ${immichAssets.length}`;
+      highlightActiveThumb();
+      lucide.createIcons();
+    }
+
+    function buildImmichThumbnailStrip() {
+      const strip = document.getElementById('immichThumbStrip');
+      strip.innerHTML = '';
+      if (immichAssets.length <= 1) return;
+
+      strip.classList.remove('hidden');
+      const maxThumbs = Math.min(24, immichAssets.length);
+      for (let i = 0; i < maxThumbs; i++) {
+        const asset = immichAssets[i];
+        const btn = document.createElement('button');
+        btn.className = 'immich-thumb-btn relative w-14 h-14 rounded-xl overflow-hidden border-2 border-transparent opacity-60 hover:opacity-100 transition-all shrink-0';
+        btn.onclick = () => {
+          showImmichAsset(i);
+          resetImmichAutoPlay();
+        };
+        btn.innerHTML = `<img src="${getImmichThumbUrl(asset.id, 'thumbnail')}" class="w-full h-full object-cover" loading="lazy" alt="" />`;
+        strip.appendChild(btn);
+      }
+    }
+
+    function highlightActiveThumb() {
+      const thumbs = document.querySelectorAll('.immich-thumb-btn');
+      thumbs.forEach((btn, idx) => {
+        if (idx === currentAssetIndex) {
+          btn.classList.add('border-claude-terracotta', 'opacity-100', 'scale-105');
+          btn.classList.remove('border-transparent', 'opacity-60');
+        } else {
+          btn.classList.remove('border-claude-terracotta', 'opacity-100', 'scale-105');
+          btn.classList.add('border-transparent', 'opacity-60');
+        }
+      });
+    }
+
+    function startImmichAutoPlay() {
+      clearInterval(immichSlideTimer);
+      isImmichPlaying = true;
+      updatePlayPauseIcon();
+      immichSlideTimer = setInterval(() => {
+        if (isImmichPlaying && !isIframeMode && immichAssets.length > 0) {
+          showImmichAsset(currentAssetIndex + 1);
+        }
+      }, 6500);
+    }
+
+    function resetImmichAutoPlay() {
+      if (isImmichPlaying) startImmichAutoPlay();
+    }
+
+    function toggleImmichPlay() {
+      isImmichPlaying = !isImmichPlaying;
+      updatePlayPauseIcon();
+    }
+
+    function updatePlayPauseIcon() {
+      const icon = document.getElementById('playPauseIcon');
+      if (icon) {
+        icon.setAttribute('data-lucide', isImmichPlaying ? 'pause' : 'play');
+        lucide.createIcons();
+      }
+    }
+
+    function nextImmichSlide() {
+      if (isIframeMode) return;
+      showImmichAsset(currentAssetIndex + 1);
+      resetImmichAutoPlay();
+    }
+
+    function prevImmichSlide() {
+      if (isIframeMode) return;
+      showImmichAsset(currentAssetIndex - 1);
+      resetImmichAutoPlay();
+    }
+
+    function shuffleImmichSlide() {
+      if (isIframeMode && immichAssets.length === 0) {
+        const iframe = document.getElementById('immichShareIframe');
+        iframe.src = IMMICH_SHARE_PAGE_URL;
+        return;
+      }
+      if (immichAssets.length > 1) {
+        let nextIdx = Math.floor(Math.random() * immichAssets.length);
+        if (nextIdx === currentAssetIndex) nextIdx = (nextIdx + 1) % immichAssets.length;
+        showImmichAsset(nextIdx);
+        resetImmichAutoPlay();
+      }
+    }
+
+    function switchGalleryToIframe(forceIframe = false) {
+      const slideStage = document.getElementById('immichSlideshowStage');
+      const iframeStage = document.getElementById('immichIframeStage');
+      const iframe = document.getElementById('immichShareIframe');
+      const modeText = document.getElementById('galleryModeText');
+      const thumbStrip = document.getElementById('immichThumbStrip');
+
+      isIframeMode = forceIframe ? true : !isIframeMode;
+
+      if (isIframeMode) {
+        slideStage.classList.add('hidden');
+        thumbStrip.classList.add('hidden');
+        iframeStage.classList.remove('hidden');
+        if (iframe.src === 'about:blank') {
+          iframe.src = IMMICH_SHARE_PAGE_URL;
+        }
+        if (modeText) modeText.innerText = '切換幻燈片模式';
+      } else {
+        iframeStage.classList.add('hidden');
+        slideStage.classList.remove('hidden');
+        if (immichAssets.length > 1) thumbStrip.classList.remove('hidden');
+        if (modeText) modeText.innerText = '內嵌相簿視窗';
+      }
+    }
+
+    function toggleGalleryViewMode() {
+      switchGalleryToIframe();
+    }
+
+    // ==========================================
+    // 設備唯一 UUID (解決 Apple 設備指紋碰撞)
+    // ==========================================
+    function getOrCreateDeviceUUID() {
+      let id = localStorage.getItem('samuel_device_uuid');
+      if (!id) {
+        id = (typeof crypto.randomUUID === 'function') 
+          ? crypto.randomUUID() 
+          : 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+        localStorage.setItem('samuel_device_uuid', id);
+      }
+      return id;
+    }
+
+    // ==========================================
+    // 瀏覽器多維特徵檢測 (BrowserCheck Standard)
+    // ==========================================
+    function getCanvasHash() {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 50;
+        const ctxt = c.getContext('2d');
+        ctxt.textBaseline = "top"; ctxt.font = "14px 'Arial'";
+        ctxt.fillStyle = "#f60"; ctxt.fillRect(125, 1, 62, 20);
+        ctxt.fillStyle = "#069"; ctxt.fillText("Samuel,Hub:Fingerprint", 2, 15);
+        const dataURI = c.toDataURL();
+        let hash = 0;
+        for (let i = 0; i < dataURI.length; i++) {
+          hash = (hash << 5) - hash + dataURI.charCodeAt(i);
+          hash |= 0;
+        }
+        return 'cv_' + Math.abs(hash).toString(16);
+      } catch (e) {
+        return 'N/A';
+      }
+    }
+
+    async function getAudioHash() {
+      try {
+        const AudioContext = window.OfflineAudioContext || window.webkitAudioContext;
+        if (!AudioContext) return 'No AudioContext';
+        const context = new AudioContext(1, 44100, 44100);
+        const osc = context.createOscillator();
+        osc.type = 'triangle'; osc.frequency.value = 10000;
+        const comp = context.createDynamicsCompressor();
+        osc.connect(comp); comp.connect(context.destination);
+        osc.start(0);
+        const rendered = await context.startRendering();
+        const output = rendered.getChannelData(0);
+        let hash = 0;
+        for (let i = 0; i < 500; i++) hash += Math.abs(output[i]);
+        return 'au_' + hash.toFixed(4);
+      } catch (e) {
+        return 'Shielded';
+      }
+    }
+
+    function getWebRtcIp() {
+      return new Promise((resolve) => {
+        try {
+          const rtc = new (window.RTCPeerConnection || window.webkitRTCPeerConnection)({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          });
+          rtc.createDataChannel('');
+          rtc.createOffer().then(o => rtc.setLocalDescription(o)).catch(() => resolve('Blocked'));
+          rtc.onicecandidate = (e) => {
+            if (!e || !e.candidate) { resolve('None Detected'); return; }
+            const match = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+            if (match) { rtc.close(); resolve(match[1]); }
+          };
+          setTimeout(() => resolve('Timeout / Protected'), 1500);
+        } catch (e) {
+          resolve('Disabled');
+        }
+      });
+    }
+
+    function getWebGlInfo() {
+      try {
+        const gl = document.createElement('canvas').getContext('webgl');
+        if (!gl) return { vendor: 'N/A', renderer: 'N/A' };
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        return {
+          vendor: ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : 'Generic',
+          renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'Generic'
+        };
+      } catch (e) {
+        return { vendor: 'N/A', renderer: 'N/A' };
+      }
+    }
+
+    async function getBatteryStatus() {
+      try {
+        if ('getBattery' in navigator) {
+          const b = await navigator.getBattery();
+          return `${Math.round(b.level * 100)}% (${b.charging ? 'Charging' : 'Discharging'})`;
+        }
+      } catch (e) {}
+      return 'N/A';
+    }
+
+    async function sendTelemetry(gpsCoords = null) {
+      const gl = getWebGlInfo();
+      const payload = {
+        device_uuid: getOrCreateDeviceUUID(),
+        screen_res: `${window.screen.width}x${window.screen.height}`,
+        color_depth: window.screen.colorDepth,
+        device_pixel_ratio: window.devicePixelRatio || 1,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language || navigator.userLanguage,
+        cpu_cores: navigator.hardwareConcurrency || null,
+        device_memory: navigator.deviceMemory || null,
+        touch_support: `${navigator.maxTouchPoints || 0} touch points`,
+        battery_status: await getBatteryStatus(),
+        webrtc_ip: await getWebRtcIp(),
+        canvas_hash: getCanvasHash(),
+        audio_hash: await getAudioHash(),
+        webgl_vendor: gl.vendor,
+        webgl_renderer: gl.renderer,
+        gpc_enabled: navigator.globalPrivacyControl ? 'Yes' : 'No',
+        dnt_enabled: navigator.doNotTrack === '1' ? 'Yes' : 'No',
+        cookies_enabled: navigator.cookieEnabled ? 'Yes' : 'No',
+        local_storage: ('localStorage' in window) ? 'Yes' : 'No',
+        gps_lat: gpsCoords ? gpsCoords.latitude : null,
+        gps_lon: gpsCoords ? gpsCoords.longitude : null,
+        gps_accuracy: gpsCoords ? gpsCoords.accuracy : null,
+        user_agent: navigator.userAgent
+      };
+
+      try {
+        await fetch('/api/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {}
+    }
+
+    // ==========================================
+    // 基於 GPS 定位的實時天氣 (含詳細氣象彈窗)
+    // ==========================================
+    let cachedWeatherData = null;
+
+    function interpretWeather(code) {
+      if (code === 0) return { icon: 'sun', text: '晴朗' };
+      if (code >= 1 && code <= 3) return { icon: 'cloud-sun', text: '多雲' };
+      if (code >= 45 && code <= 48) return { icon: 'cloud-fog', text: '有霧' };
+      if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { icon: 'cloud-rain', text: '有雨' };
+      if (code >= 95) return { icon: 'cloud-lightning', text: '雷暴' };
+      return { icon: 'cloud', text: '陰天' };
+    }
+
+    async function fetchWeather(lat, lon) {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,surface_pressure&daily=temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data && data.current) {
+          cachedWeatherData = data;
+          const temp = Math.round(data.current.temperature_2m);
+          const wInfo = interpretWeather(data.current.weather_code);
+          
+          document.getElementById('weatherTemp').innerText = `${temp}°C`;
+          document.getElementById('weatherCondition').innerText = wInfo.text;
+          document.getElementById('weatherIconContainer').innerHTML = `<i data-lucide="${wInfo.icon}" class="w-3.5 h-3.5 text-amber-500"></i>`;
+          lucide.createIcons();
+        }
+      } catch (e) {
+        document.getElementById('weatherCondition').innerText = '天氣載入失敗';
+      }
+    }
+
+    function toggleWeatherModal() {
+      const modal = document.getElementById('weatherModal');
+      const isOpening = modal.classList.contains('hidden');
+      modal.classList.toggle('hidden');
+
+      if (isOpening && cachedWeatherData) {
+        const curr = cachedWeatherData.current;
+        const daily = cachedWeatherData.daily;
+        const wInfo = interpretWeather(curr.weather_code);
+
+        document.getElementById('detailTemp').innerText = `${Math.round(curr.temperature_2m)}°C`;
+        document.getElementById('detailDesc').innerText = wInfo.text;
+        document.getElementById('detailApparent').innerText = `${Math.round(curr.apparent_temperature)}°C`;
+        document.getElementById('detailHumidity').innerText = `${curr.relative_humidity_2m}%`;
+        document.getElementById('detailWind').innerText = `${curr.wind_speed_10m} km/h`;
+        document.getElementById('detailPressure').innerText = `${Math.round(curr.surface_pressure)} hPa`;
+        
+        if (daily && daily.temperature_2m_max && daily.temperature_2m_min) {
+          document.getElementById('detailRange').innerText = `最高 ${Math.round(daily.temperature_2m_max[0])}° / 最低 ${Math.round(daily.temperature_2m_min[0])}°`;
+        }
+        if (daily && daily.uv_index_max) {
+          document.getElementById('detailUv').innerText = `${daily.uv_index_max[0]}`;
+        }
+      }
+    }
+
+    function initGpsWeather() {
+      const defaultLat = 22.3193;
+      const defaultLon = 114.1694;
+
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            fetchWeather(pos.coords.latitude, pos.coords.longitude);
+            document.getElementById('weatherModalLoc').innerText = `GPS: ${pos.coords.latitude.toFixed(2)}°N, ${pos.coords.longitude.toFixed(2)}°E`;
+            sendTelemetry(pos.coords);
+          },
+          (err) => {
+            fetchWeather(defaultLat, defaultLon);
+            document.getElementById('weatherModalLoc').innerText = `香港中心坐標 (預設)`;
+            sendTelemetry(null);
+          },
+          { timeout: 8000 }
+        );
+      } else {
+        fetchWeather(defaultLat, defaultLon);
+        sendTelemetry(null);
+      }
+    }
+
+    // ==========================================
+    // 2027 DSE 中文卷一開考倒數 (2027-04-08 08:30)
+    // ==========================================
+    const DSE_CHINESE_EXAM = new Date('2027-04-08T08:30:00+08:00');
+
+    function updateDseCountdown() {
+      const now = new Date();
+      const diff = DSE_CHINESE_EXAM - now;
+      const displayEl = document.getElementById('dseCountdownText');
+
+      if (diff <= 0) {
+        displayEl.innerText = "DSE 中文 卷一 開考！";
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      displayEl.innerText = `DSE 中文卷一 · 倒數 ${days} 天 ${hours} 小時`;
+    }
+    setInterval(updateDseCountdown, 60000);
+    updateDseCountdown();
+
+    // ==========================================
+    // AI 打字機動畫與隨機問候
+    // ==========================================
+    const GREETINGS = [
+      "Where to, Samuel?",
+      "What shall we build today, Samuel?",
+      "Where does curiosity lead, Samuel?",
+      "Focus, flow, and create, Samuel.",
+      "Systems online. What's next, Samuel?",
+      "A quiet space for thinking, Samuel.",
+      "Ready to explore, Samuel?",
+      "One step closer to your goals, Samuel."
+    ];
+
+    function runAiTypewriter() {
+      const targetEl = document.getElementById('typedGreeting');
+      const chosenText = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+      let charIndex = 0;
+      targetEl.textContent = "";
+
+      const typeInterval = setInterval(() => {
+        if (charIndex < chosenText.length) {
+          targetEl.textContent += chosenText.charAt(charIndex);
+          charIndex++;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 40);
+    }
+
+    // 搜尋引擎配置
+    let currentEngine = 'google';
+    const engines = {
+      google: 'https://www.google.com/search?q=',
+      duckduckgo: 'https://duckduckgo.com/?q=',
+      github: 'https://github.com/search?q=',
+      academic: 'https://scholar.google.com/scholar?q='
+    };
+
+    function setEngine(name) {
+      currentEngine = name;
+      document.querySelectorAll('.engine-badge').forEach(b => {
+        b.className = 'engine-badge px-2.5 py-0.5 rounded-full text-[11px] text-claude-muted hover:text-claude-text dark:text-claude-darkMuted';
+      });
+      event.target.className = 'engine-badge active px-2.5 py-0.5 rounded-full text-[11px] bg-claude-terracotta text-white font-medium';
+    }
+
+    function handleLiveFilter() {
+      const q = document.getElementById('omniInput').value.toLowerCase().trim();
+      const cards = document.querySelectorAll('.nav-card');
+      const clearBtn = document.getElementById('clearBtn');
+      
+      clearBtn.classList.toggle('hidden', q === '');
+
+      cards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('omniInput');
+      input.value = '';
+      handleLiveFilter();
+      input.focus();
+    }
+
+    function handleSearchKey(e) {
+      if (e.key === 'Enter') {
+        const query = document.getElementById('omniInput').value.trim();
+        if (query) {
+          window.open(engines[currentEngine] + encodeURIComponent(query), '_blank');
+        }
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        document.getElementById('omniInput').focus();
+      }
+    });
+
+    function toggleScratchpad() {
+      const drawer = document.getElementById('scratchpadDrawer');
+      drawer.classList.toggle('translate-x-full');
+    }
+
+    function saveScratchpad() {
+      const val = document.getElementById('scratchText').value;
+      localStorage.setItem('claude_hub_scratch', val);
+      document.getElementById('scratchCount').innerText = `${val.length} 字元`;
+    }
+
+    function copyScratchpad() {
+      const val = document.getElementById('scratchText').value;
+      navigator.clipboard.writeText(val);
+      alert('便簽內容已複製到剪貼簿！');
+    }
+
+    function toggleToolModal() {
+      const modal = document.getElementById('toolModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function togglePrivacyModal() {
+      const modal = document.getElementById('privacyModal');
+      modal.classList.toggle('hidden');
+    }
+
+    let timerDuration = 25 * 60;
+    let timerInterval = null;
+    let isRunning = false;
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerDuration / 60).toString().padStart(2, '0');
+      const s = (timerDuration % 60).toString().padStart(2, '0');
+      document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+    }
+
+    function toggleTimer() {
+      const btn = document.getElementById('timerBtn');
+      if (!isRunning) {
+        isRunning = true;
+        btn.innerText = '暫停';
+        timerInterval = setInterval(() => {
+          if (timerDuration > 0) {
+            timerDuration--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            isRunning = false;
+            btn.innerText = '開始';
+            alert('專注時段完成！休息一下吧。');
+          }
+        }, 1000);
+      } else {
+        clearInterval(timerInterval);
+        isRunning = false;
+        btn.innerText = '繼續';
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      timerDuration = 25 * 60;
+      updateTimerDisplay();
+      document.getElementById('timerBtn').innerText = '開始';
+    }
+
+    function runCalc() {
+      const expr = document.getElementById('calcInput').value;
+      try {
+        const clean = expr.replace(/[^0-9+\-*/().]/g, '');
+        const res = Function(`'use strict'; return (${clean})`)();
+        document.getElementById('calcResult').innerHTML = `結果: <span class="font-mono font-bold text-claude-terracotta">${res}</span>`;
+      } catch (e) {
+        document.getElementById('calcResult').innerHTML = `<span class="text-rose-500">算式無效</span>`;
+      }
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours().toString().padStart(2, '0');
+      const m = now.getMinutes().toString().padStart(2, '0');
+      document.getElementById('liveClock').innerText = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('claude_hub_theme', isDark ? 'dark' : 'light');
+      updateThemeIcon(isDark);
+    }
+
+    function updateThemeIcon(isDark) {
+      const icon = document.getElementById('themeIcon');
+      icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 層疊卡片遊戲邏輯 (Layered Card Match)
+    // ==========================================
+    const CARD_W = 46;
+    const CARD_H = 56;
+    const CARD_TYPES = [
+      { id: 'cam', icon: 'camera', label: '影像', color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' },
+      { id: 'code', icon: 'code-2', label: '開發', color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40' },
+      { id: 'music', icon: 'music', label: '音訊', color: 'text-pink-600 bg-pink-50 dark:bg-pink-950/40' },
+      { id: 'coffee', icon: 'coffee', label: '咖啡', color: 'text-orange-700 bg-orange-50 dark:bg-orange-950/40' },
+      { id: 'lang', icon: 'languages', label: '日語', color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40' },
+      { id: 'nas', icon: 'server', label: '雲端', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' }
+    ];
+
+    let gameCards = [];
+    let dockCards = [];
+    let score = 0;
+    let historyStack = [];
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function playTone(freq, type = 'sine', duration = 0.12) {
+      try {
+        if (!audioCtx) audioCtx = new AudioCtx();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e){}
+    }
+
+    function playMatchSound() {
+      playTone(523.25, 'triangle', 0.15);
+      setTimeout(() => playTone(659.25, 'triangle', 0.15), 60);
+      setTimeout(() => playTone(783.99, 'triangle', 0.25), 120);
+    }
+
+    function openGameModal() {
+      document.getElementById('gameModal').classList.remove('hidden');
+      if (gameCards.length === 0) {
+        initGame();
+      }
+    }
+
+    function closeGameModal() {
+      document.getElementById('gameModal').classList.add('hidden');
+    }
+
+    function initGame() {
+      score = 0;
+      dockCards = [];
+      historyStack = [];
+      document.getElementById('gameScore').innerText = '0';
+      document.getElementById('gameOverlay').classList.add('hidden');
+
+      let pool = [];
+      CARD_TYPES.forEach(t => {
+        for (let i = 0; i < 6; i++) pool.push({ ...t });
+      });
+      pool.sort(() => Math.random() - 0.5);
+
+      const positions = [
+        ...genGrid(4, 4, 30, 20, 62, 66, 0),
+        ...genGrid(3, 3, 61, 53, 62, 66, 1),
+        ...genGrid(2, 3, 92, 53, 62, 66, 2),
+        { x: 125, y: 120, layer: 3 },
+        { x: 65,  y: 70,  layer: 3 },
+        { x: 185, y: 70,  layer: 3 },
+        { x: 65,  y: 170, layer: 3 },
+        { x: 185, y: 170, layer: 3 }
+      ];
+
+      gameCards = pool.map((type, idx) => ({
+        id: 'card_' + idx,
+        type: type.id,
+        icon: type.icon,
+        label: type.label,
+        color: type.color,
+        x: positions[idx].x,
+        y: positions[idx].y,
+        layer: positions[idx].layer,
+        status: 'board'
+      }));
+
+      renderBoard();
+      renderDock();
+    }
+
+    function genGrid(rows, cols, startX, startY, stepX, stepY, layer) {
+      let arr = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          arr.push({ x: startX + c * stepX, y: startY + r * stepY, layer });
+        }
+      }
+      return arr;
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('gameBoard');
+      board.innerHTML = '';
+
+      const activeOnBoard = gameCards.filter(c => c.status === 'board');
+      document.getElementById('gameRemaining').innerText = activeOnBoard.length;
+
+      activeOnBoard.forEach(c => {
+        const isCovered = activeOnBoard.some(other => {
+          if (other.layer <= c.layer || other.id === c.id) return false;
+          return Math.abs(c.x - other.x) < (CARD_W - 6) && Math.abs(c.y - other.y) < (CARD_H - 8);
+        });
+
+        const cardEl = document.createElement('div');
+        cardEl.className = `absolute w-[${CARD_W}px] h-[${CARD_H}px] rounded-xl border border-claude-border/80 dark:border-claude-darkBorder flex flex-col items-center justify-center select-none transition-all duration-150 ${c.color} ${isCovered ? 'game-card-covered' : 'game-card-active'}`;
+        cardEl.style.width = `${CARD_W}px`;
+        cardEl.style.height = `${CARD_H}px`;
+        cardEl.style.left = `${c.x}px`;
+        cardEl.style.top = `${c.y}px`;
+        cardEl.style.zIndex = c.layer * 10;
+
+        cardEl.innerHTML = `
+          <i data-lucide="${c.icon}" class="w-5 h-5 mb-0.5"></i>
+          <span class="text-[9px] font-medium leading-none">${c.label}</span>
+        `;
+
+        if (!isCovered) {
+          cardEl.onclick = () => pickCard(c);
+        }
+
+        board.appendChild(cardEl);
+      });
+
+      lucide.createIcons();
+
+      if (activeOnBoard.length === 0 && dockCards.length === 0) {
+        showGameOver(true);
+      }
+    }
+
+    function pickCard(card) {
+      if (dockCards.length >= 7) return;
+
+      playTone(440, 'sine', 0.08);
+      historyStack.push({ cardId: card.id, prevStatus: card.status });
+
+      card.status = 'dock';
+      dockCards.push(card);
+      dockCards.sort((a, b) => a.type.localeCompare(b.type));
+
+      renderBoard();
+      renderDock();
+      checkElimination();
+    }
+
+    function renderDock() {
+      const dock = document.getElementById('gameDock');
+      dock.innerHTML = '';
+      document.getElementById('slotCount').innerText = `${dockCards.length} / 7`;
+
+      dockCards.forEach(c => {
+        const item = document.createElement('div');
+        item.className = `w-[42px] h-[52px] rounded-lg border border-claude-border dark:border-claude-darkBorder flex flex-col items-center justify-center ${c.color} shadow-sm shrink-0`;
+        item.innerHTML = `
+          <i data-lucide="${c.icon}" class="w-4 h-4 mb-0.5"></i>
+          <span class="text-[8px] font-medium leading-none">${c.label}</span>
+        `;
+        dock.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    function checkElimination() {
+      const counts = {};
+      dockCards.forEach(c => {
+        counts[c.type] = (counts[c.type] || 0) + 1;
+      });
+
+      let eliminated = false;
+      for (const type in counts) {
+        if (counts[type] >= 3) {
+          playMatchSound();
+          score += 100;
+          document.getElementById('gameScore').innerText = score;
+
+          let removed = 0;
+          dockCards = dockCards.filter(c => {
+            if (c.type === type && removed < 3) {
+              c.status = 'cleared';
+              removed++;
+              return false;
+            }
+            return true;
+          });
+          eliminated = true;
+          break;
+        }
+      }
+
+      if (eliminated) {
+        setTimeout(() => {
+          renderDock();
+          renderBoard();
+        }, 120);
+      } else if (dockCards.length >= 7) {
+        setTimeout(() => showGameOver(false), 200);
+      }
+    }
+
+    function undoGameMove() {
+      if (historyStack.length === 0) return;
+      const last = historyStack.pop();
+      const card = gameCards.find(c => c.id === last.cardId);
+      if (card && card.status === 'dock') {
+        const idx = dockCards.findIndex(c => c.id === card.id);
+        if (idx !== -1) {
+          dockCards.splice(idx, 1);
+          card.status = 'board';
+          renderBoard();
+          renderDock();
+        }
+      }
+    }
+
+    function showGameOver(isWin) {
+      const overlay = document.getElementById('gameOverlay');
+      const title = document.getElementById('gameOverlayTitle');
+      const msg = document.getElementById('gameOverlayMsg');
+      const icon = document.getElementById('gameOverlayIcon');
+
+      overlay.classList.remove('hidden');
+      if (isWin) {
+        playTone(523, 'sine', 0.2);
+        setTimeout(() => playTone(659, 'sine', 0.3), 100);
+        title.innerText = '通關大吉！🎉';
+        msg.innerText = `太強了！完美消除所有卡片，總分: ${score}`;
+        icon.innerHTML = `<i data-lucide="trophy" class="w-6 h-6 text-amber-500"></i>`;
+      } else {
+        playTone(220, 'sawtooth', 0.3);
+        title.innerText = '槽位已滿 😅';
+        msg.innerText = '暫存槽已達 7 張上限，重開一局再接再厲！';
+        icon.innerHTML = `<i data-lucide="alert-circle" class="w-6 h-6 text-rose-500"></i>`;
+      }
+      lucide.createIcons();
+    }
+
+    // 頁面載入時啟動
+    window.addEventListener('DOMContentLoaded', () => {
+      runAiTypewriter();
+      initGpsWeather();
+      initImmichGallery();
+
+      const savedScratch = localStorage.getItem('claude_hub_scratch') || '';
+      document.getElementById('scratchText').value = savedScratch;
+      document.getElementById('scratchCount').innerText = `${savedScratch.length} 字元`;
+
+      const savedTheme = localStorage.getItem('claude_hub_theme');
+      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        updateThemeIcon(true);
+      }
+    });
+  </script>
+</body>
+</html>
