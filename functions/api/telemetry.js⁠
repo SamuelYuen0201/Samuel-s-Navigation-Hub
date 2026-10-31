@@ -1,0 +1,58 @@
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
+  try {
+    const body = await request.json();
+
+    // 直接從 Cloudflare Request Header 讀取真實訪客 IP、國家同城市
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'Unknown';
+    const country = request.cf?.country || 'Unknown';
+    const city = request.cf?.city || 'Unknown';
+
+    const stmt = env.DB.prepare(`
+      INSERT INTO visits (
+        ip_address, country, city, device_uuid, screen_res, color_depth,
+        device_pixel_ratio, timezone, language, cpu_cores, device_memory,
+        touch_support, battery_status, webrtc_ip, canvas_hash, audio_hash,
+        webgl_vendor, webgl_renderer, gpc_enabled, dnt_enabled,
+        cookies_enabled, local_storage, gps_lat, gps_lon, gps_accuracy, user_agent
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      clientIp, country, city,
+      body.device_uuid ?? null,
+      body.screen_res ?? null,
+      body.color_depth ?? null,
+      body.device_pixel_ratio ?? null,
+      body.timezone ?? null,
+      body.language ?? null,
+      body.cpu_cores ?? null,
+      body.device_memory ?? null,
+      body.touch_support ?? null,
+      body.battery_status ?? null,
+      body.webrtc_ip ?? null,
+      body.canvas_hash ?? null,
+      body.audio_hash ?? null,
+      body.webgl_vendor ?? null,
+      body.webgl_renderer ?? null,
+      body.gpc_enabled ?? null,
+      body.dnt_enabled ?? null,
+      body.cookies_enabled ?? null,
+      body.local_storage ?? null,
+      body.gps_lat ?? null,
+      body.gps_lon ?? null,
+      body.gps_accuracy ?? null,
+      body.user_agent ?? null
+    );
+
+    await stmt.run();
+    return new Response(JSON.stringify({ status: 'ok' }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ status: 'error', message: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
